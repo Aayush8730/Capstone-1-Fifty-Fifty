@@ -619,7 +619,11 @@ document.getElementById("submit-expense-btn").addEventListener("click", async ()
   const paidBy = document.getElementById("member-selects").value;
   console.log(paidBy);
   const splitType = document.getElementById("split-type").value;
-
+  
+  if(amount<=0){
+    showPopup("Enter valid amount",2000);
+    return;
+  }
   if (!description || !amount || isNaN(amount) || !paidBy) {
     showPopup("Please fill out all fields with valid data.");
     return;
