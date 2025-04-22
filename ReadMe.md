@@ -5,7 +5,6 @@ A web application that allows users to create groups, add members, share expense
 ## Live URL
 This project runs locally. Frontend on `localhost:5500/5501`, backend on `localhost:8090`.
 
-
 ##  Features
 
 ### Core Functionality

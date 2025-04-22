@@ -151,7 +151,6 @@ document.getElementById("login-press").addEventListener("click", async () => {
       localStorage.setItem("token", data.token);
       localStorage.setItem("userId", data.userId);
       localStorage.setItem("name", name);
-      calculateBalances();
       showPopup("Login successful!", 1500);
       setTimeout(reloadDOM, 500);
       updateUIAfterLogin(name);
@@ -213,14 +212,13 @@ function showPopup(message,time) {
   }, time);
 }
 
-document.getElementById("getStartedBtn").addEventListener("click", () => {
+document.getElementById("getStartedBtn").addEventListener("click",async () => {
   const token = localStorage.getItem("token");
 
   if (token) {
       document.querySelector(".wrapper-div").style.display = "none";
       document.querySelector(".dashboard-container").style.display = "flex";
       aboutButton.style.display = "none";
-      fetchUserGroups();
   } else {
       showPopup("Please log in or sign up before getting started!", 3000);
   }
@@ -241,8 +239,8 @@ window.addEventListener("load", () => {
 async function fetchUserGroups() {
   const userId = localStorage.getItem("userId");
   if (!userId) {
-    console.error("Please try to sign in again!!");
-    return;
+    console.error("User ID not found. Please try to sign in again!");
+    return [];
   }
 
   try {
@@ -253,29 +251,34 @@ async function fetchUserGroups() {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
     });
-    
 
     if (!response.ok) {
-      throw new Error("Failed to fetch groups");
+      throw new Error(`Failed to fetch groups. Status: ${response.status}`);
     }
 
-    const groups = await response.json(); 
-    const groupsList = document.getElementById("groupsList");
-    groupsList.innerHTML = ""; 
+    const groups = await response.json();
 
-    groups.forEach((group) => {
-      const li = document.createElement("li");
-      li.setAttribute("data-id", group.groupId); 
-      li.innerHTML = `
-        <span class="material-symbols-outlined">
-          groups_2
-        </span>
-        <div class="grp-name">${group.groupName}</div>
-      `;
-      groupsList.appendChild(li);
-    });
+
+    const groupsList = document.getElementById("groupsList");
+    if (groupsList) {
+      groupsList.innerHTML = ""; 
+      groups.forEach((group) => {
+        const li = document.createElement("li");
+        li.setAttribute("data-id", group.groupId); 
+        li.innerHTML = `
+          <span class="material-symbols-outlined">
+            groups_2
+          </span>
+          <div class="grp-name">${group.groupName}</div>
+        `;
+        groupsList.appendChild(li);
+      });
+    }
+
+    return groups;
   } catch (error) {
     console.error("Error fetching groups:", error);
+    return []; 
   }
 }
 
@@ -321,7 +324,8 @@ async function createGroup() {
           await updateSelectedUsersIndividually(createdGroupId);
 
 
-          await fetchUserGroups();
+         const groups = await fetchUserGroups();
+         calculateBalances(groups);
       } else {
           showPopup(responseData.message, 3000);
       }
@@ -619,13 +623,13 @@ document.getElementById("submit-expense-btn").addEventListener("click", async ()
   const paidBy = document.getElementById("member-selects").value;
   console.log(paidBy);
   const splitType = document.getElementById("split-type").value;
-  
+
   if(amount<=0){
     showPopup("Enter valid amount",2000);
     return;
   }
   if (!description || !amount || isNaN(amount) || !paidBy) {
-    showPopup("Please fill out all fields with valid data.");
+    showPopup("Please fill out all fields with valid data.",2000);
     return;
   }
 
@@ -762,21 +766,6 @@ function updateExpensesUI(description, amount, paidBy) {
   expensesList.appendChild(li);
 }
 
-async function fetchUserGroups2() {
-  const token = localStorage.getItem("token");
-  const userId = localStorage.getItem("userId");  
-
-  if (!userId) {
-      console.error("User ID not found in localStorage");
-      return [];
-  }
-
-  const response = await fetch(`http://localhost:8090/groups/user/${userId}`, {
-      headers: { "Authorization": `Bearer ${token}` }
-  });
-
-  return response.json();
-}
 
 async function fetchGroupExpenses(groupId) {
   const token = localStorage.getItem("token");
@@ -797,7 +786,8 @@ async function fetchExpenseParticipants(expenseId) {
 
   return response.json();
 }
-async function calculateBalances() {
+
+async function calculateBalances(groups) {
   const userId = localStorage.getItem("userId");
 
   if (!userId) {
@@ -808,8 +798,6 @@ async function calculateBalances() {
   let balances = {};
 
   try {
-      const groups = await fetchUserGroups2();
-
       for (const group of groups) {
           const expenses = await fetchGroupExpenses(group.groupId);
 
@@ -858,8 +846,16 @@ function storeUserMap(users) {
 document.addEventListener("DOMContentLoaded", updateBalances);
 
 async function updateBalances() {
-  const balances = await calculateBalances();
-  updateBalancesUI(balances);
+  try {
+      const groups = await fetchUserGroups();
+      if (!Array.isArray(groups)) {
+          throw new Error("fetchUserGroups did not return an array");
+      }
+      const balances = await calculateBalances(groups);
+      updateBalancesUI(balances);
+  } catch (error) {
+      console.error("Error in updateBalances:", error);
+  }
 }
 
 async function fetchGroupBalances(groupId, groupName) {
@@ -1006,9 +1002,7 @@ async function approveSettlement(payerId, payeeId) {
       console.log("Settlement approved successfully:", result);
       showPopup(result, 2000);
 
-      // Update balances UI
-      const balances = await calculateBalances();
-      updateBalancesUI(balances);
+      await updateBalances();
       fetchApprovalRequests();
   } catch (error) {
       console.error("Error approving settlement:", error);
@@ -1106,5 +1100,4 @@ function reloadDOM() {
 
 window.onload = function () {
   fetchApprovalRequests();
-  calculateBalances();
 };
