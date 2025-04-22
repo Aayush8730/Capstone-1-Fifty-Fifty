@@ -532,14 +532,20 @@ document.getElementById("groupsList").addEventListener("click", async (e) => {
   
     const groupHeader = document.querySelector(".group-header");
     groupHeader.querySelector("h2").textContent = membersData[0]?.group.groupName || "Group Name";
-    groupHeader.querySelector("p").textContent = `Members: ${membersData.map((m) => m.user.name).join(", ")}`;
-  
+    groupHeader.querySelector("p").textContent = `${membersData.map((m) => m.user.name).join(", ")}`;
+    
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      console.error("User ID not found in localStorage. Please try signing in again.");
+      return;
+    }
+
     const expensesList = document.getElementById("expenses-list");
     expensesList.innerHTML = expensesData
-      .map(
-        (expense) =>
-          `<li>${expense.description} - ₹${expense.amount.toFixed(2)} (Paid by ${expense.paidBy.name})</li>`
-      )
+      .map((expense) => {
+        const payerName = expense.paidBy.userId == userId ? "you" : expense.paidBy.name;
+        return `<li>${expense.description} - ₹${expense.amount.toFixed(2)} (Paid by ${payerName})</li>`;
+      })
       .join("");
   }
   
@@ -861,86 +867,124 @@ async function updateBalances() {
 async function fetchGroupBalances(groupId, groupName) {
   const userId = localStorage.getItem("userId");
   if (!userId) {
-      console.error("User ID not found in localStorage");
-      return;
+    console.error("User ID not found in localStorage");
+    return;
   }
 
   try {
-      console.log(`Fetching balances for Group: ${groupName} (ID: ${groupId})`);
+    console.log(`Fetching balances for Group: ${groupName} (ID: ${groupId})`);
 
-      const expensesList = document.getElementById("expenses-list");
-      const expenses = await fetchGroupExpenses(groupId);
-      let groupBalances = {};
+    const expensesList = document.getElementById("expenses-list");
+    const expenses = await fetchGroupExpenses(groupId);
+    let groupBalances = {};
 
-      for (const expense of expenses) {
-          const payerId = expense.paidBy.userId;
-          const participants = await fetchExpenseParticipants(expense.expenseId);
+    for (const expense of expenses) {
+      const payerId = expense.paidBy.userId;
+      const participants = await fetchExpenseParticipants(expense.expenseId);
 
-          for (const ep of participants) {
-              if (ep.status === "PENDING" || ep.status === "APPROVE_SETTLE") {
-                  const participantId = ep.user.userId;
-                  const amountOwed = parseFloat(ep.shareAmount);
+      for (const ep of participants) {
+        if (ep.status === "PENDING" || ep.status === "APPROVE_SETTLE") {
+          const participantId = ep.user.userId;
+          const amountOwed = parseFloat(ep.shareAmount);
 
-                  if (participantId !== payerId) {
-                      if (participantId == userId) {
-                          groupBalances[payerId] = (groupBalances[payerId] || 0) + amountOwed;
-                      } else if (payerId == userId) {
-                          groupBalances[participantId] = (groupBalances[participantId] || 0) - amountOwed;
-                      }
-                  }
-              }
+          if (participantId !== payerId) {
+            if (participantId == userId) {
+              groupBalances[payerId] = (groupBalances[payerId] || 0) + amountOwed;
+            } else if (payerId == userId) {
+              groupBalances[participantId] = (groupBalances[participantId] || 0) - amountOwed;
+            }
           }
+        }
       }
+    }
 
+    expensesList.innerHTML += "<h4>💰 Balances:</h4>";
 
-      expensesList.innerHTML += "<h4>💰 Balances:</h4>";
+    if (Object.keys(groupBalances).length === 0) {
+      expensesList.innerHTML += "<li>✅ No Pending balances.</li>";
+    } else {
+      const userMap = JSON.parse(localStorage.getItem("userMap")) || {};
+      for (const [payerId, balance] of Object.entries(groupBalances)) {
+        const userName = userMap[payerId] || `User ${payerId}`;
+        const balanceText = balance >= 0
+          ? `You owe ${userName}: ₹${balance.toFixed(2)}`
+          : `${userName} owes you: ₹${(-balance).toFixed(2)}`;
 
-      if (Object.keys(groupBalances).length === 0) {
-          expensesList.innerHTML += "<li>✅ No Pending balances.</li>";
-      } else {
-          const userMap = JSON.parse(localStorage.getItem("userMap")) || {};
-          Object.entries(groupBalances).forEach(([payerId, balance]) => {
-              const userName = userMap[payerId] || `User ${payerId}`;
-              const balanceText = balance >= 0
-                  ? `You owe ${userName}: ₹${balance.toFixed(2)}`
-                  : `${userName} owes you: ₹${(-balance).toFixed(2)}`;
+        const balanceItem = document.createElement("li");
+        balanceItem.textContent = balanceText;
 
-              const balanceItem = document.createElement("li");
-              balanceItem.textContent = balanceText;
+        if (balance > 0) {
+          const settleButton = document.createElement("button");
+          settleButton.textContent = "Loading...";
+          settleButton.classList.add("settle-button");
+          settleButton.disabled = true;
 
+          // Fetch the settlement status
+          fetchSettlementStatus(payerId, userId).then((status) => {
+            if (status === "APPROVE_SETTLE") {
+              settleButton.textContent = "Request Sent";
+              settleButton.disabled = true;
+              settleButton.classList.add("sent-button");
+            } else if (status === "SETTLED") {
+              settleButton.textContent = "Settled";
+              settleButton.disabled = true;
+              settleButton.classList.add("settled-button");
+            } else if (status === "PENDING" || status === null) {
+              settleButton.textContent = "Settle";
+              settleButton.disabled = false;
 
-              if (balance > 0) {
-                  const settleButton = document.createElement("button");
-                  settleButton.textContent = "Settle";
-                  settleButton.classList.add("settle-button");
-                  settleButton.onclick = async function () {
-                    if (this.disabled) {
-                        showPopup("Request already sent", 2000);
-                        return;
-                    }
-                
-                    const result = await settleBalance(payerId, userId);
-                
-                    if (result) {
-                        this.textContent = "Request Sent";
-                        this.disabled = true;
-                        this.classList.add("sent-button");
-                
-                        await fetchGroupBalances(groupId, groupName);
-                    }
-                };
-                
+              settleButton.onclick = async function () {
+                if (this.disabled) {
+                  showPopup("Request already sent", 2000);
+                  return;
+                }
 
-                  balanceItem.appendChild(settleButton);
-              }
+                const result = await settleBalance(payerId, userId);
 
-              expensesList.appendChild(balanceItem);
+                if (result) {
+                  this.textContent = "Request Sent";
+                  this.disabled = true;
+                  this.classList.add("sent-button");
+
+                  await fetchGroupBalances(groupId, groupName);
+                }
+              };
+            }
           });
+
+          balanceItem.appendChild(settleButton);
+        }
+
+        expensesList.appendChild(balanceItem);
       }
+    }
   } catch (error) {
-      console.error("Error fetching group balances:", error);
+    console.error("Error fetching group balances:", error);
   }
 }
+
+async function fetchSettlementStatus(payerId, payeeId) {
+  try {
+    const response = await fetch(`http://localhost:8090/expenses/settlement-status/${payerId}/${payeeId}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch settlement status. Status: ${response.status}`);
+    }
+
+    const { status } = await response.json();
+    return status; 
+  } catch (error) {
+    console.error("Error fetching settlement status:", error);
+    return null;
+  }
+}
+
 
 
 async function settleBalance(payerId, payeeId) {

@@ -408,7 +408,7 @@ input:focus {
 #popup-message {
   display: none;
   position: fixed;
-  top: 10%;
+  top: 1%;
   left: 50%;
   transform: translateX(-50%);
   padding: 12px 20px;
