@@ -59,14 +59,4 @@ public class UserController {
         return userService.getUserById(id);
     }
 
-    @PostMapping
-    public User addUser(@RequestBody User user) {
-        return userService.addUser(user);
-    }
-
-    @DeleteMapping("/{id:[0-9]+}")
-    public void deleteUser(@PathVariable Long id) {
-        userService.deleteUser(id);
-    }
 }
-

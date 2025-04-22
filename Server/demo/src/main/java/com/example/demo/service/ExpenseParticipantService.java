@@ -24,15 +24,12 @@ public class ExpenseParticipantService {
     private UserRepository userRepository;
 
     public ExpenseParticipant addParticipant(ExpenseParticipant participant) {
-        // Validate the expense
         Expense expense = expenseRepository.findById(participant.getExpense().getExpenseId())
                 .orElseThrow(() -> new IllegalArgumentException("Expense not found"));
 
-        // Validate the user
         User user = userRepository.findById(participant.getUser().getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // Set valid expense and user
         participant.setExpense(expense);
         participant.setUser(user);
 
@@ -41,16 +38,5 @@ public class ExpenseParticipantService {
 
     public List<ExpenseParticipant> getParticipantsByExpense(Long expenseId) {
         return expenseParticipantRepository.findByExpense_ExpenseId(expenseId);
-    }
-
-    public void updateParticipantStatus(Long id, String status) {
-        ExpenseParticipant participant = expenseParticipantRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Participant not found"));
-        participant.setStatus(ExpenseParticipant.Status.valueOf(status));
-        expenseParticipantRepository.save(participant);
-    }
-
-    public void deleteParticipant(Long id) {
-        expenseParticipantRepository.deleteById(id);
     }
 }

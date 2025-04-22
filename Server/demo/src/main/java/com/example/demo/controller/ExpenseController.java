@@ -9,7 +9,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/expenses")
@@ -47,6 +49,7 @@ public class ExpenseController {
         expenseService.deleteExpense(expenseId);
         return ResponseEntity.noContent().build();
     }
+
     @PutMapping("/settle-request/{payerId}")
     public ResponseEntity<String> requestSettlement(@PathVariable Long payerId, @RequestParam Long payeeId) {
         List<ExpenseParticipant> pendingExpenses = expenseParticipantRepository
@@ -88,7 +91,32 @@ public class ExpenseController {
         if (settlementRequests.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
-
         return ResponseEntity.ok(settlementRequests);
+    }
+    @GetMapping("/settlement-status/{payerId}/{payeeId}")
+    public ResponseEntity<Map<String, String>> getSettlementStatus(@PathVariable Long payerId, @PathVariable Long payeeId) {
+        List<ExpenseParticipant> settlementParticipants = expenseParticipantRepository
+                .findByUser_UserIdAndExpense_PaidBy_UserId(payeeId, payerId);
+
+        if (settlementParticipants.isEmpty()) {
+            return ResponseEntity.ok(Collections.singletonMap("status", "PENDING"));
+        }
+
+        boolean hasApproveSettle = settlementParticipants.stream()
+                .anyMatch(ep -> ep.getStatus() == ExpenseParticipant.Status.APPROVE_SETTLE);
+
+        boolean hasSettled = settlementParticipants.stream()
+                .anyMatch(ep -> ep.getStatus() == ExpenseParticipant.Status.SETTLED);
+
+        String status;
+        if (hasSettled) {
+            status = "SETTLED";
+        } else if (hasApproveSettle) {
+            status = "APPROVE_SETTLE";
+        } else {
+            status = "PENDING";
+        }
+
+        return ResponseEntity.ok(Collections.singletonMap("status", status));
     }
 }

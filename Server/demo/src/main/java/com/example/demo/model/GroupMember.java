@@ -23,7 +23,6 @@ public class GroupMember {
     @Column(nullable = false)
     private LocalDateTime joinedAt = LocalDateTime.now();
 
-    // Getters and Setters
 
     public GroupMember(Long id, Group group, User user, LocalDateTime joinedAt) {
         this.id = id;

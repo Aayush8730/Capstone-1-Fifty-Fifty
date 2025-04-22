@@ -26,13 +26,11 @@ public class GroupService {
 
     @Transactional
     public Group createGroup(Group group) {
-        // Validate user existence for createdBy
         Long userId = group.getCreatedBy().getUserId();
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User with ID " + userId + " not found"));
         group.setCreatedBy(user);
 
-        // Save the group
         return groupRepository.save(group);
     }
 
@@ -59,7 +57,6 @@ public class GroupService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User with ID " + userId + " not found"));
 
-        // Check if user is already a member
         if (groupMemberRepository.existsByUserAndGroup(user, group)) {
             throw new RuntimeException("User is already a member of this group");
         }

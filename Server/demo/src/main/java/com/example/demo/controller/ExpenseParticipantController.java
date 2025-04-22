@@ -29,16 +29,4 @@ public class ExpenseParticipantController {
         List<ExpenseParticipant> participants = participantService.getParticipantsByExpense(expenseId);
         return ResponseEntity.ok(participants);
     }
-
-    @PatchMapping("/{id}")
-    public ResponseEntity<Void> updateParticipantStatus(@PathVariable Long id, @RequestParam String status) {
-        participantService.updateParticipantStatus(id, status);
-        return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteParticipant(@PathVariable Long id) {
-        participantService.deleteParticipant(id);
-        return ResponseEntity.noContent().build();
-    }
 }

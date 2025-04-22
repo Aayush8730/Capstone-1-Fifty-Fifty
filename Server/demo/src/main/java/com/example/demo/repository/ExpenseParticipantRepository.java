@@ -13,4 +13,6 @@ public interface ExpenseParticipantRepository extends JpaRepository<ExpenseParti
     List<ExpenseParticipant> findByUser_UserIdAndStatusAndExpense_PaidBy_UserId(Long userId, ExpenseParticipant.Status status, Long paidById);
 
     List<ExpenseParticipant> findByExpense_PaidBy_UserIdAndStatus(Long payeeId, ExpenseParticipant.Status status);
+
+    List<ExpenseParticipant> findByUser_UserIdAndExpense_PaidBy_UserId(Long payeeId, Long payerId);
 }

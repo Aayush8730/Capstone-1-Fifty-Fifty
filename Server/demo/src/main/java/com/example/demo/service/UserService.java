@@ -47,13 +47,6 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    public User addUser(User user) {
-        return userRepository.save(user);
-    }
-
-    public void deleteUser(Long id) {
-        userRepository.deleteById(id);
-    }
 
     public void registerUser(User user) {
         user.setPassword(encoder.encode(user.getPassword()));
