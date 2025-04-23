@@ -160,7 +160,7 @@ document.getElementById("login-press").addEventListener("click", async () => {
     }
   } catch (error) {
     console.error("Error during login:", error);
-    alert("An error occurred during login.");
+    alert("Please Enter Valid Credentials");
   }
 });
 
@@ -201,7 +201,6 @@ logoutButton.addEventListener("click", () => {
 
 
 //show the popup
-
 function showPopup(message,time) {
   const popup = document.getElementById("popup-message");
   popup.textContent = message;
@@ -234,7 +233,6 @@ window.addEventListener("load", () => {
       updateUIAfterLogin(storedUsername);
   }
 });
-
 
 async function fetchUserGroups() {
   const userId = localStorage.getItem("userId");
@@ -539,13 +537,13 @@ document.getElementById("groupsList").addEventListener("click", async (e) => {
       console.error("User ID not found in localStorage. Please try signing in again.");
       return;
     }
-
+    
     const expensesList = document.getElementById("expenses-list");
     expensesList.innerHTML = expensesData
-      .map((expense) => {
-        const payerName = expense.paidBy.userId == userId ? "you" : expense.paidBy.name;
-        return `<li>${expense.description} - ₹${expense.amount.toFixed(2)} (Paid by ${payerName})</li>`;
-      })
+      .map(
+        (expense) =>
+          `<li>${expense.description} - ₹${expense.amount.toFixed(2)} (Paid by ${expense.paidBy.name})</li>`
+      )
       .join("");
   }
   
@@ -867,124 +865,86 @@ async function updateBalances() {
 async function fetchGroupBalances(groupId, groupName) {
   const userId = localStorage.getItem("userId");
   if (!userId) {
-    console.error("User ID not found in localStorage");
-    return;
+      console.error("User ID not found in localStorage");
+      return;
   }
 
   try {
-    console.log(`Fetching balances for Group: ${groupName} (ID: ${groupId})`);
+      console.log(`Fetching balances for Group: ${groupName} (ID: ${groupId})`);
 
-    const expensesList = document.getElementById("expenses-list");
-    const expenses = await fetchGroupExpenses(groupId);
-    let groupBalances = {};
+      const expensesList = document.getElementById("expenses-list");
+      const expenses = await fetchGroupExpenses(groupId);
+      let groupBalances = {};
 
-    for (const expense of expenses) {
-      const payerId = expense.paidBy.userId;
-      const participants = await fetchExpenseParticipants(expense.expenseId);
+      for (const expense of expenses) {
+          const payerId = expense.paidBy.userId;
+          const participants = await fetchExpenseParticipants(expense.expenseId);
 
-      for (const ep of participants) {
-        if (ep.status === "PENDING" || ep.status === "APPROVE_SETTLE") {
-          const participantId = ep.user.userId;
-          const amountOwed = parseFloat(ep.shareAmount);
+          for (const ep of participants) {
+              if (ep.status === "PENDING" || ep.status === "APPROVE_SETTLE") {
+                  const participantId = ep.user.userId;
+                  const amountOwed = parseFloat(ep.shareAmount);
 
-          if (participantId !== payerId) {
-            if (participantId == userId) {
-              groupBalances[payerId] = (groupBalances[payerId] || 0) + amountOwed;
-            } else if (payerId == userId) {
-              groupBalances[participantId] = (groupBalances[participantId] || 0) - amountOwed;
-            }
+                  if (participantId !== payerId) {
+                      if (participantId == userId) {
+                          groupBalances[payerId] = (groupBalances[payerId] || 0) + amountOwed;
+                      } else if (payerId == userId) {
+                          groupBalances[participantId] = (groupBalances[participantId] || 0) - amountOwed;
+                      }
+                  }
+              }
           }
-        }
       }
-    }
 
-    expensesList.innerHTML += "<h4>💰 Balances:</h4>";
 
-    if (Object.keys(groupBalances).length === 0) {
-      expensesList.innerHTML += "<li>✅ No Pending balances.</li>";
-    } else {
-      const userMap = JSON.parse(localStorage.getItem("userMap")) || {};
-      for (const [payerId, balance] of Object.entries(groupBalances)) {
-        const userName = userMap[payerId] || `User ${payerId}`;
-        const balanceText = balance >= 0
-          ? `You owe ${userName}: ₹${balance.toFixed(2)}`
-          : `${userName} owes you: ₹${(-balance).toFixed(2)}`;
+      expensesList.innerHTML += "<h4>💰 Balances:</h4>";
 
-        const balanceItem = document.createElement("li");
-        balanceItem.textContent = balanceText;
+      if (Object.keys(groupBalances).length === 0) {
+          expensesList.innerHTML += "<li>✅ No Pending balances.</li>";
+      } else {
+          const userMap = JSON.parse(localStorage.getItem("userMap")) || {};
+          Object.entries(groupBalances).forEach(([payerId, balance]) => {
+              const userName = userMap[payerId] || `User ${payerId}`;
+              const balanceText = balance >= 0
+                  ? `You owe ${userName}: ₹${balance.toFixed(2)}`
+                  : `${userName} owes you: ₹${(-balance).toFixed(2)}`;
 
-        if (balance > 0) {
-          const settleButton = document.createElement("button");
-          settleButton.textContent = "Loading...";
-          settleButton.classList.add("settle-button");
-          settleButton.disabled = true;
+              const balanceItem = document.createElement("li");
+              balanceItem.textContent = balanceText;
 
-          // Fetch the settlement status
-          fetchSettlementStatus(payerId, userId).then((status) => {
-            if (status === "APPROVE_SETTLE") {
-              settleButton.textContent = "Request Sent";
-              settleButton.disabled = true;
-              settleButton.classList.add("sent-button");
-            } else if (status === "SETTLED") {
-              settleButton.textContent = "Settled";
-              settleButton.disabled = true;
-              settleButton.classList.add("settled-button");
-            } else if (status === "PENDING" || status === null) {
-              settleButton.textContent = "Settle";
-              settleButton.disabled = false;
 
-              settleButton.onclick = async function () {
-                if (this.disabled) {
-                  showPopup("Request already sent", 2000);
-                  return;
-                }
+              if (balance > 0) {
+                  const settleButton = document.createElement("button");
+                  settleButton.textContent = "Settle";
+                  settleButton.classList.add("settle-button");
+                  settleButton.onclick = async function () {
+                    if (this.disabled) {
+                        showPopup("Request already sent", 2000);
+                        return;
+                    }
+                
+                    const result = await settleBalance(payerId, userId);
+                
+                    if (result) {
+                        this.textContent = "Request Sent";
+                        this.disabled = true;
+                        this.classList.add("sent-button");
+                
+                        await fetchGroupBalances(groupId, groupName);
+                    }
+                };
+                
 
-                const result = await settleBalance(payerId, userId);
+                  balanceItem.appendChild(settleButton);
+              }
 
-                if (result) {
-                  this.textContent = "Request Sent";
-                  this.disabled = true;
-                  this.classList.add("sent-button");
-
-                  await fetchGroupBalances(groupId, groupName);
-                }
-              };
-            }
+              expensesList.appendChild(balanceItem);
           });
-
-          balanceItem.appendChild(settleButton);
-        }
-
-        expensesList.appendChild(balanceItem);
       }
-    }
   } catch (error) {
-    console.error("Error fetching group balances:", error);
+      console.error("Error fetching group balances:", error);
   }
 }
-
-async function fetchSettlementStatus(payerId, payeeId) {
-  try {
-    const response = await fetch(`http://localhost:8090/expenses/settlement-status/${payerId}/${payeeId}`, {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${localStorage.getItem("token")}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch settlement status. Status: ${response.status}`);
-    }
-
-    const { status } = await response.json();
-    return status; 
-  } catch (error) {
-    console.error("Error fetching settlement status:", error);
-    return null;
-  }
-}
-
 
 
 async function settleBalance(payerId, payeeId) {
@@ -1042,17 +1002,86 @@ async function approveSettlement(payerId, payeeId) {
       } else {
           result = await response.text(); 
       }
-
       console.log("Settlement approved successfully:", result);
       showPopup(result, 2000);
 
-      await updateBalances();
-      fetchApprovalRequests();
   } catch (error) {
       console.error("Error approving settlement:", error);
       alert("Failed to approve settlement. Please try again.");
   }
 }
+
+
+async function postTransaction(fromUserId, toUserId, groupId, amount, descriptions) {
+    const token = localStorage.getItem("token");
+    if (!token) {
+        console.error("Authorization token not found");
+        return;
+    }
+
+    const transactionData = {
+        fromUserId,
+        toUserId,
+        groupId,
+        amount,
+        descriptions
+    };
+
+    try {
+        const response = await fetch("http://localhost:8090/transactions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(transactionData)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to post transaction: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log("Transaction recorded:", result);
+        showPopup("Transaction recorded successfully!", 2000);
+        await fetchUserTransactions();
+    } catch (error) {
+        console.error("Error posting transaction:", error);
+        alert("Failed to record transaction. Please try again.");
+    }
+}
+
+async function fetchUserTransactions() {
+
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+        console.error("User ID not found in localStorage");
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem("token");
+
+        const response = await fetch(`http://localhost:8090/transactions/${userId}`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error fetching transactions: ${response.status}`);
+        }
+
+        const transactions = await response.json();
+        console.log("Fetched transactions:", transactions);
+
+    } catch (error) {
+        console.error("Error fetching transactions:", error);
+    }
+}
+
 
 async function fetchApprovalRequests() {
   const userId = localStorage.getItem("userId");
@@ -1103,45 +1132,142 @@ async function fetchApprovalRequests() {
           return;
       }
 
-      approvalRequests.forEach((request) => {
+      const grouped = {};
+
+      approvalRequests.forEach((req) => {
+          const key = `${req.user.userId}-${req.expense.group.groupId}`;
+          if (!grouped[key]) {
+              grouped[key] = {
+                  requesterName: req.user.name,
+                  payerName: req.expense.paidBy.name,
+                  payerId: req.expense.paidBy.userId,
+                  requesterId: req.user.userId,
+                  groupId: req.expense.group.groupId,
+                  groupName: req.expense.group.groupName,
+                  totalAmount: 0,
+                  descriptions: [],
+              };
+          }
+
+          grouped[key].totalAmount += parseFloat(req.shareAmount);
+          grouped[key].descriptions.push(req.expense.description);
+      });
+
+      for (const key in grouped) {
+          const group = grouped[key];
+
           const approvalItem = document.createElement("li");
           approvalItem.classList.add("approval-item");
 
-          const expenseDescription = request.expense.description;
-          const amount = request.shareAmount;
-          const groupName = request.expense.group.groupName;
-          const payerName = request.expense.paidBy.name;
-          const requesterName = request.user.name;
-
           approvalItem.innerHTML = `
-              <p><strong>Requester:</strong> ${requesterName}</p>
-              <p><strong>Group:</strong> ${groupName}</p>
-              <p><strong>Expense:</strong> ${expenseDescription}</p>
-              <p><strong>Amount to approve:</strong> ₹${amount}</p>
-              <p><strong>Payer:</strong> ${payerName}</p>
+              <p><strong>Requester:</strong> ${group.requesterName}</p>
+              <p><strong>Group:</strong> ${group.groupName}</p>
+              <p><strong>Expenses:</strong> ${group.descriptions.join(", ")}</p>
+              <p><strong>Total Amount to Approve:</strong> ₹${group.totalAmount.toFixed(2)}</p>
+              <p><strong>Payer:</strong> ${group.payerName}</p>
           `;
 
           const approveButton = document.createElement("button");
           approveButton.textContent = "Approve";
           approveButton.classList.add("approve-button");
           approveButton.onclick = async () => {
-              await approveSettlement(request.expense.paidBy.userId, request.user.userId);
-              approveButton.textContent = "Approved";
-              approveButton.disabled = true;
-          };
+            await approveSettlement(group.payerId, group.requesterId);
+            approveButton.textContent = "Approved";
+            approveButton.disabled = true;
+        
+            await postTransaction(
+                group.payerId,
+                group.requesterId,
+                group.groupId,
+                group.totalAmount,
+                group.descriptions.join(", ")
+            );
+        };
+        
 
           approvalItem.appendChild(approveButton);
           approvalList.appendChild(approvalItem);
-      });
+      }
   } catch (error) {
       console.error("Error fetching approval requests:", error);
   }
 }
 
+async function fetchUserTransactions() {
+  const userId = localStorage.getItem("userId");
+  if (!userId) {
+      console.error("User ID not found in localStorage");
+      return;
+  }
+
+  try {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`http://localhost:8090/transactions/${userId}`, {
+          method: "GET",
+          headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json"
+          }
+      });
+
+      if (!response.ok) {
+          throw new Error(`Error fetching transactions: ${response.status}`);
+      }
+
+      const transactions = await response.json();
+      console.log("Fetched transactions:", transactions);
+
+      const transactionList = document.getElementById("transaction-list");
+      transactionList.innerHTML = ""; 
+
+
+      if (transactions.length === 0) {
+          transactionList.innerHTML = "<li>No transactions found.</li>";
+          return;
+      }
+
+      try {
+        transactions.forEach(tx => {
+          const item = document.createElement("li");
+          item.classList.add("transaction-item");
+
+          const userMap = JSON.parse(localStorage.getItem("userMap")) || {};
+          const fromUser = userMap[tx.fromUserId] || {};
+          const toUser = userMap[tx.toUserId] || {};
+          const group = tx.groupId || {};
+      
+          const isSender = tx.fromUserId === parseInt(userId);
+          const label = !isSender
+              ? `You paid ₹${tx.amount} to ${fromUser|| "Unknown"}`
+              : `${toUser || "Unknown"} paid you ₹${tx.amount}`;
+      
+          item.innerHTML = `
+              <p>${label}</p>
+              <p><strong>Description:</strong> ${tx.descriptions || "-"}</p>
+              <hr />
+          `;
+      
+          transactionList.appendChild(item);
+      });
+      } catch (renderErr) {
+        console.error("UI rendering failed:", renderErr);
+      }
+    
+
+  } catch (error) {
+      console.error("Error fetching transactions:", error);
+  }
+}
+
+
 function reloadDOM() {
   location.reload();
 }
 
-window.onload = function () {
-  fetchApprovalRequests();
-};
+
+document.addEventListener("DOMContentLoaded", () => {
+  fetchUserTransactions();
+});
+
+fetchApprovalRequests();
