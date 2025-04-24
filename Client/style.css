@@ -1090,7 +1090,9 @@ input, select {
     padding: 8px;
     font-size: 14px;
   }
-
+  .right-half{
+    flex-direction: column;
+  }
   .container {
     width: 100%;
     flex-direction: column;
@@ -1220,7 +1222,7 @@ input, select {
   background-color: #272757;
   color: white;
   border-radius: 4px;
-  margin-left: 40px;
+  margin-left: 10px;
 }
 
 .approve-button:hover{
@@ -1255,4 +1257,12 @@ input, select {
   border: none;
   border-top: 1px solid #eee;
   margin-top: 0.8rem;
+}
+.sent-button {
+  background-color: gray;
+  cursor: not-allowed;
+  opacity: 0.8;
+  border-radius: 2px;
+  color: black;
+  margin-left: 20px;
 }
